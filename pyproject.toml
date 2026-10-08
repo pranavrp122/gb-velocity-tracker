@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gb-velocity-tracker"
+version = "0.1.0"
+description = "Track grain-boundary migration in OVITO snapshots and fit velocities and activation energies"
+license = { text = "MIT" }
+authors = [{ name = "Pranav Patlola" }]
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "pillow>=10", "matplotlib>=3.7"]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+gbtrack = "gbtrack.cli:main"
+
+[tool.setuptools]
+packages = ["gbtrack"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
