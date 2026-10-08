@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from .profile import find_peaks, refine_peak, smooth  # noqa: F401  (re-exported)
+from .profile import find_peak_indices, refine_peak, smooth  # noqa: F401  (re-exported)
 
 BLACK_LEVEL = 30
 
@@ -83,4 +83,4 @@ def find_boundaries(profile: np.ndarray, n: int = 2,
 
     An image is not periodic, so the search does not wrap around its edges.
     """
-    return find_peaks(profile, n, min_separation, circular=False)
+    return find_peak_indices(profile, n, min_separation, circular=False)

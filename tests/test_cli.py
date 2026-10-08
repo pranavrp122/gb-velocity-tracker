@@ -8,7 +8,8 @@ from PIL import Image
 
 from conftest import DATA
 from gbtrack.cli import frame_number, main
-from gbtrack.synth import make_frames
+from gbtrack.dump import write_dump
+from gbtrack.synth import DUMP_COLUMNS, make_dump_frames, make_frames
 
 
 def test_frame_number_uses_last_integer(tmp_path) -> None:
@@ -31,6 +32,24 @@ def test_images_writes_all_outputs(tmp_path) -> None:
     assert summary["velocity_m_per_s"] == pytest.approx(100 * summary["velocity_A_per_ps"])
     table = np.genfromtxt(out / "distances.csv", delimiter=",", names=True)
     assert table["frame"].tolist() == list(range(12))
+    assert (out / "distance_vs_time.png").stat().st_size > 0
+
+
+def test_run_on_a_synthetic_dump(tmp_path) -> None:
+    dump = tmp_path / "traj.dmp.gz"
+    write_dump(dump, make_dump_frames(30, v_A_per_frame=0.35, seed=6), DUMP_COLUMNS)
+    out = tmp_path / "out"
+    main(["run", str(dump), "--every", "2", "--dt-ps", "0.002", "--out", str(out)])
+    summary = json.loads((out / "summary.json").read_text())
+    assert summary["n_frames"] == 15
+    assert summary["structure_col"] == "v_ptm_type"
+    # The side boundary is stationary, so the averaged distance grows at half the speed.
+    assert summary["velocity_A_per_ps"] == pytest.approx(0.35 / 2 / 2.0, rel=0.05)
+    header = (out / "distances.csv").read_text().splitlines()[0]
+    assert header == "frame,timestep,time_ps,middle_A,side_A,average_A"
+    table = np.genfromtxt(out / "distances.csv", delimiter=",", names=True)
+    assert table["frame"][:3].tolist() == [0, 2, 4]
+    assert table["time_ps"][1] == pytest.approx(2000 * 0.002)
     assert (out / "distance_vs_time.png").stat().st_size > 0
 
 

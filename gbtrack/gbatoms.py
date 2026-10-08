@@ -44,10 +44,18 @@ def structure_column(columns: list[str], structure_col: str = "auto") -> str:
 
 
 def boundary_atoms(data: np.ndarray, columns: list[str], structure_col: str = "auto",
-                   fcc_value: int = 1, csym_thresh: float | None = None) -> np.ndarray:
-    """Bool mask of boundary atoms: non-FCC structure, or high centrosymmetry."""
+                   fcc_value: int = 1,
+                   csym_thresh: float = DEFAULT_CSYM_THRESH) -> np.ndarray:
+    """Bool mask of boundary atoms: non-FCC structure, or high centrosymmetry.
+
+    With structure_col="auto" the first column named v_ptm_type, ptm_type,
+    StructureType or c_ptm[1] is used and an atom is a boundary atom when its
+    type differs from `fcc_value`. If none of those exist, c_csym or csym is
+    used and an atom is a boundary atom when its centrosymmetry exceeds
+    `csym_thresh`. If neither exists a ValueError names the columns looked for.
+    """
     name = structure_column(columns, structure_col)
     values = data[:, columns.index(name)]
     if name in CSYM_COLUMNS:
-        return values > (DEFAULT_CSYM_THRESH if csym_thresh is None else csym_thresh)
+        return values > csym_thresh
     return np.rint(values) != fcc_value

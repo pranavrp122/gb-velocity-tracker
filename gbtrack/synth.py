@@ -86,8 +86,8 @@ def make_frames(n_frames: int, width: int = 640, height: int = 360,
 # Synthetic LAMMPS dump trajectories --------------------------------------
 
 FCC_A = 3.52  # nickel lattice parameter, angstrom
-DUMP_BOX = (140.8, 21.12, 21.12)
-DUMP_COLUMNS = ["id", "type", "x", "y", "z", "c_pe", "v_ptm_type", "c_csym", "c_voro[1]"]
+DUMP_BOX = (60.0, 30.0, 30.0)
+DUMP_COLUMNS = ["id", "type", "x", "y", "z", "v_ptm_type"]
 GRAIN_ANGLE_DEG = 26.57  # tilt about z, so lattice planes do not line up with x bins
 
 
@@ -118,7 +118,7 @@ def _slab(x: np.ndarray, centre: float, width: float, length: float) -> np.ndarr
 
 
 def make_dump_frames(n_frames: int, box: tuple[float, float, float] = DUMP_BOX,
-                     v_A_per_frame: float = 0.35, slab_width_A: float = 4.0,
+                     v_A_per_frame: float = 0.35, slab_width_A: float = 3.0,
                      speck_fraction: float = 0.10, seed: int = 0, side_gb: bool = True,
                      side_v_A_per_frame: float = 0.0, steps_per_frame: int = 1000,
                      jitter_A: float = 0.1) -> list[tuple[int, list, np.ndarray]]:
@@ -126,8 +126,8 @@ def make_dump_frames(n_frames: int, box: tuple[float, float, float] = DUMP_BOX,
 
     Atoms sit on a tilted FCC lattice with thermal jitter. Those inside the
     middle slab (moving +x by `v_A_per_frame`), inside the side slab at the
-    periodic edge, or picked as random specks get PTM type 0 and a high
-    centrosymmetry; everything else is FCC (type 1).
+    periodic edge (moving by `side_v_A_per_frame`), or picked as random specks
+    get PTM type 0; everything else is FCC (type 1).
     """
     rng = np.random.default_rng(seed)
     lattice = _rotated_fcc(box)
@@ -140,9 +140,6 @@ def make_dump_frames(n_frames: int, box: tuple[float, float, float] = DUMP_BOX,
         gb = _slab(pos[:, 0], middle, slab_width_A, box[0]) | (rng.random(n) < speck_fraction)
         if side_gb:
             gb |= _slab(pos[:, 0], side, slab_width_A, box[0])
-        csym = np.where(gb, rng.uniform(10, 20, n), rng.uniform(0, 1.5, n))
-        pe = -4.45 + 0.3 * gb + rng.normal(0, 0.02, n)
-        data = np.column_stack([np.arange(1, n + 1), np.ones(n), pos, pe,
-                                np.where(gb, 0, 1), csym, rng.normal(10.9, 0.2, n)])
+        data = np.column_stack([np.arange(1, n + 1), np.ones(n), pos, np.where(gb, 0, 1)])
         frames.append((f * steps_per_frame, bounds, data))
     return frames

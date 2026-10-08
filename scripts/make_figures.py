@@ -14,7 +14,7 @@ from gbtrack import plots
 from gbtrack.cli import DUMP_DEMO
 from gbtrack.detect import boundary_mask, column_profile, find_boundaries, load_frame, sample_rows
 from gbtrack.dump import write_dump
-from gbtrack.profile import find_boundaries as find_profile_peaks
+from gbtrack.profile import find_peaks as find_profile_peaks
 from gbtrack.synth import DUMP_COLUMNS, make_dump_frames, make_frames
 from gbtrack.track import (displacement_px, dump_profiles, frame_profile, track_boundaries,
                            track_periodic)
@@ -117,7 +117,7 @@ def synthetic_figure() -> tuple[float, float]:
 def show_position_profile(ax, profile: np.ndarray, centers: np.ndarray, title: str) -> None:
     half_bin = (centers[1] - centers[0]) / 2
     ax.plot(centers, profile, color=plots.INK_MUTED, lw=1.2)
-    for x in find_profile_peaks(profile, centers, n=2):
+    for x in find_profile_peaks(centers, profile, n=2):
         ax.axvline(x, color=plots.MARKER_RED, lw=1.5, clip_on=False)
         # A peak on the periodic edge sits on the plot border, so label every peak.
         ax.annotate(f"{x:.1f} A", (x, 1.0), xycoords=("data", "axes fraction"),

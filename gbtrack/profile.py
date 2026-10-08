@@ -41,8 +41,8 @@ def refine_peak(profile: np.ndarray, i: int, circular: bool = False) -> float:
     return float(i + 0.5 * (left - right) / denom)
 
 
-def find_peaks(profile: np.ndarray, n: int = 2, min_separation: int | None = None,
-               circular: bool = False) -> list[float]:
+def find_peak_indices(profile: np.ndarray, n: int = 2, min_separation: int | None = None,
+                      circular: bool = False) -> list[float]:
     """Fractional bin indices of the `n` strongest peaks, sorted ascending.
 
     Peaks are taken greedily: the highest remaining bin wins, then everything
@@ -70,32 +70,29 @@ def contrast(profile: np.ndarray, i: int) -> float:
     return float(profile[i] - np.median(profile))
 
 
-def position_profile(x: np.ndarray, box_lo: float, box_hi: float, bin_A: float = 1.0,
-                     smooth_bins: int = 3) -> tuple[np.ndarray, np.ndarray]:
+def position_histogram(x: np.ndarray, lo: float, hi: float, bin_A: float = 1.0,
+                       smooth_bins: int = 3) -> tuple[np.ndarray, np.ndarray]:
     """Normalised, circularly smoothed histogram of boundary-atom positions.
 
-    Returns (profile, bin_centers). The profile sums to one, so profiles of
-    frames with different numbers of boundary atoms stay comparable.
+    Returns (bin_centers, hist). The histogram sums to one, so frames with
+    different numbers of boundary atoms stay comparable. Positions outside
+    [lo, hi) are wrapped into the box first.
     """
-    n_bins = max(1, int(round((box_hi - box_lo) / bin_A)))
-    edges = np.linspace(box_lo, box_hi, n_bins + 1)
-    wrapped = box_lo + np.mod(np.asarray(x, float) - box_lo, box_hi - box_lo)
+    n_bins = max(1, int(round((hi - lo) / bin_A)))
+    edges = np.linspace(lo, hi, n_bins + 1)
+    wrapped = lo + np.mod(np.asarray(x, float) - lo, hi - lo)
     counts, _ = np.histogram(wrapped, bins=edges)
     total = counts.sum()
-    profile = counts / total if total else counts.astype(float)
-    return smooth(profile, smooth_bins, circular=True), 0.5 * (edges[:-1] + edges[1:])
+    hist = counts / total if total else counts.astype(float)
+    return 0.5 * (edges[:-1] + edges[1:]), smooth(hist, smooth_bins, circular=True)
 
 
-def find_boundaries(profile: np.ndarray, bin_centers: np.ndarray, n: int = 2,
-                    min_separation_A: float | None = None) -> list[float]:
-    """Peak positions in angstrom on a periodic axis, wrapped into the box.
-
-    `min_separation_A` defaults to a tenth of the box length.
-    """
+def find_peaks(bin_centers: np.ndarray, hist: np.ndarray, n: int = 2,
+               min_separation_A: float = 10.0) -> list[float]:
+    """Peak positions in angstrom on a periodic axis, wrapped into the box, sorted."""
     bin_A = float(bin_centers[1] - bin_centers[0])
     lo = float(bin_centers[0]) - bin_A / 2
     length = bin_A * len(bin_centers)
-    if min_separation_A is None:
-        min_separation_A = length / 10
-    idx = find_peaks(profile, n, max(1, int(round(min_separation_A / bin_A))), circular=True)
-    return sorted(lo + np.mod((i + 0.5) * bin_A, length) for i in idx)
+    separation = max(1, int(round(min_separation_A / bin_A)))
+    idx = find_peak_indices(hist, n, separation, circular=True)
+    return sorted(lo + float(np.mod((i + 0.5) * bin_A, length)) for i in idx)

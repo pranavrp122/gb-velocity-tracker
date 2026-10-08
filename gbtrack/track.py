@@ -23,8 +23,8 @@ from .detect import (boundary_mask, column_profile, find_boundaries, load_frame,
                      refine_peak, sample_columns, sample_rows)
 from .dump import axis_positions, iter_frames
 from .gbatoms import boundary_atoms
-from .profile import contrast, position_profile
-from .profile import find_boundaries as find_profile_peaks
+from .profile import contrast, position_histogram
+from .profile import find_peaks as find_profile_peaks
 
 Frame = Union[np.ndarray, str, Path]
 
@@ -106,7 +106,8 @@ def wrap(x: float, lo: float, length: float) -> float:
 
 def min_image(d: float, length: float) -> float:
     """Shortest signed separation on a periodic axis of the given length."""
-    return d - length * round(d / length)
+    # np.round keeps a lost boundary's NaN as NaN instead of raising.
+    return float(d - length * np.round(d / length))
 
 
 def dump_profiles(path: str | Path, every: int = 1, axis: str = "x",
@@ -116,7 +117,7 @@ def dump_profiles(path: str | Path, every: int = 1, axis: str = "x",
         mask = boundary_atoms(data, columns, structure_col)
         x = axis_positions(data, columns, axis, box)
         lo, hi = box["xyz".index(axis)]
-        profile, centers = position_profile(x[mask], lo, hi, bin_A)
+        centers, profile = position_histogram(x[mask], lo, hi, bin_A)
         yield timestep, profile, centers, lo, hi - lo
 
 
@@ -140,7 +141,7 @@ def _follow_periodic(profile: np.ndarray, centers: np.ndarray, prev: float,
 def _initial_periodic(profile: np.ndarray, centers: np.ndarray, lo: float,
                       length: float) -> list[float]:
     """Two strongest peaks; middle is the one nearest the box centre."""
-    peaks = find_profile_peaks(profile, centers, n=2)
+    peaks = find_profile_peaks(centers, profile, n=2)
     peaks.sort(key=lambda x: abs(min_image(x - (lo + length / 2), length)))
     return (peaks + [np.nan, np.nan])[:2]
 

@@ -18,7 +18,8 @@ import numpy as np
 from PIL import Image
 
 from . import plots
-from .dump import write_dump
+from .dump import iter_frames, write_dump
+from .gbatoms import structure_column
 from .synth import DUMP_COLUMNS, make_dump_frames, make_frames
 from .track import displacement_px, track_boundaries, track_dump
 from .velocity import (angstrom_per_ps_to_m_per_s, arrhenius_fit, fit_velocity,
@@ -99,10 +100,11 @@ def plot_run(path: Path, table: dict[str, np.ndarray], summary: dict) -> None:
     plots.save(fig, path)
 
 
-def write_outputs(out: Path, table: dict[str, np.ndarray], columns: list[str]) -> dict:
+def write_outputs(out: Path, table: dict[str, np.ndarray], columns: list[str],
+                  extra: dict | None = None) -> dict:
     """distances.csv, summary.json and distance_vs_time.png; returns the summary."""
     out.mkdir(parents=True, exist_ok=True)
-    summary = summarize(table)
+    summary = {**summarize(table), **(extra or {})}
     write_table(out / "distances.csv", table, columns)
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     plot_run(out / "distance_vs_time.png", table, summary)
@@ -112,8 +114,12 @@ def write_outputs(out: Path, table: dict[str, np.ndarray], columns: list[str]) -
 def run_dump(path: Path, every: int, dt_ps: float, out: Path, axis: str = "x",
              structure_col: str = "auto", window: float = 5.0) -> dict:
     """Track a LAMMPS dump and write all outputs."""
+    # Resolve "auto" up front from the first frame's header so the summary records it.
+    first_columns = next(iter_frames(path))[2]
+    structure_col = structure_column(first_columns, structure_col)
     timesteps, positions = track_dump(path, every, axis, structure_col, window)
-    return write_outputs(out, dump_table(timesteps, positions, every, dt_ps), DUMP_TABLE_COLUMNS)
+    table = dump_table(timesteps, positions, every, dt_ps)
+    return write_outputs(out, table, DUMP_TABLE_COLUMNS, {"structure_col": structure_col})
 
 
 def run_images(paths: list[Path], steps_per_frame: float, ps_per_step: float,
@@ -154,7 +160,8 @@ def cmd_arrhenius(args: argparse.Namespace) -> None:
     print(json.dumps(result, indent=2))
 
 
-DUMP_DEMO = {"n_frames": 40, "v_A_per_frame": 0.35, "speck_fraction": 0.10, "seed": 7,
+# 25 frames keep the two boundaries, closing in from both sides, >10 A apart in a 60 A box.
+DUMP_DEMO = {"n_frames": 25, "v_A_per_frame": 0.35, "speck_fraction": 0.10, "seed": 7,
              "steps_per_frame": 5000, "dt_ps": 0.002}
 IMAGE_DEMO = {"n_frames": 60, "v_px_per_frame": 1.5, "speck_fraction": 0.08, "seed": 7,
               "scale_A_per_px": 0.2, "steps_per_frame": 1.0, "ps_per_step": 1000.0}
