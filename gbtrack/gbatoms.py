@@ -20,8 +20,7 @@ import numpy as np
 
 STRUCTURE_COLUMNS = ("v_ptm_type", "ptm_type", "StructureType", "c_ptm[1]")
 CSYM_COLUMNS = ("c_csym", "csym")
-# Centrosymmetry is in angstrom^2. Thermal vibration in FCC metals stays well
-# below this; stacking faults, boundaries and surfaces sit at or above it.
+# Centrosymmetry threshold in angstrom^2: FCC thermal vibration stays below it, boundaries and faults sit above it.
 DEFAULT_CSYM_THRESH = 8.0
 
 

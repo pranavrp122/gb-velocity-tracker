@@ -43,8 +43,7 @@ def _atom_field(width: int, height: int) -> np.ndarray:
 
 
 def _paint_band(img: np.ndarray, centre: float, rng: np.random.Generator) -> None:
-    # Coverage falls off smoothly with distance from the centre, so the band's
-    # column profile has a single, sub-pixel-accurate maximum.
+    # Coverage falls off smoothly from the band centre so its column profile has one sub-pixel maximum.
     x0, x1, y0, y1 = sample_box(img.shape[1], img.shape[0])
     cols = np.arange(x0, x1)
     coverage = np.exp(-0.5 * ((cols - centre) / BAND_SIGMA) ** 2)

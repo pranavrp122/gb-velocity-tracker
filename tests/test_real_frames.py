@@ -35,7 +35,6 @@ def test_1400K_step0_boundary_found() -> None:
 
 
 def test_1400K_step199_is_reported_without_asserting_direction() -> None:
-    # Thermal disorder at 1400 K turns much of the crystal white; the detector
-    # still has to return a position inside the sample.
+    # At 1400 K thermal disorder whitens much of the crystal; the detector must still return a position inside the sample.
     x1, f1 = middle_boundary("ni_1400K_step199.png")
     assert np.isfinite(x1) and 0.0 < f1 < 1.0
