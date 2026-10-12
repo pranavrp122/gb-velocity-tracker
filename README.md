@@ -1,33 +1,33 @@
 # Grain Boundary Velocity Tracker
 
-Measures how fast a grain boundary moves in an atomistic simulation, straight from the LAMMPS dump file that OVITO reads, and turns a set of runs at different temperatures into a velocity table and an Arrhenius fit.
+A small tool that measures how fast a grain boundary moves in an atomistic simulation. It reads the same LAMMPS dump file OVITO opens, tracks the boundary frame by frame, and fits a velocity. Point it at runs from several temperatures and it also fits the Arrhenius line for the activation energy.
 
-I wrote this tool as a research assistant in the Rupert Lab at UC Irvine, where I ran hybrid Monte Carlo / molecular dynamics simulations (LAMMPS) of a NiCoCr bicrystal to see how alloying and chemical ordering change how easily a grain boundary moves. This is the cleaned-up version, published with the study's data and figures.
+I wrote it during my research assistantship, where I was running hybrid Monte Carlo / molecular dynamics simulations (LAMMPS) of a NiCoCr bicrystal to see how alloying and chemical ordering change how easily a grain boundary moves. This is the cleaned-up version, posted with the data and figures from that work.
 
 ![How the tracker works on a synthetic trajectory](figures/dump_demo.png)
 
-## What it replaced
+## Why I wrote it
 
-Each simulation produces a trajectory of 200 frames. The number we wanted from every run is one slope: how far the boundary moved against how much time passed.
+Every simulation gives you a trajectory of 200 frames, and the one number you actually want out of it is a slope: how far the boundary moved versus how much time passed.
 
-The manual way to get it, which is how I did it at first, was to open the trajectory in OVITO, step forward a fixed number of frames, measure the boundary's new position with OVITO's measuring tool, write the distance down in a spreadsheet, and repeat about twenty times per run. Then fit a line. It took about an hour per run and had to be done again for every temperature and every alloy.
+At first I got that number by hand. Open the trajectory in OVITO, step forward some fixed number of frames, measure where the boundary is now with the measuring tool, type the distance into a spreadsheet, repeat about twenty times, then fit a line. Roughly an hour per run, and I had four temperatures per alloy and several alloys.
 
-This tool does the same measurement automatically: it reads the trajectory, finds the boundary in every Nth frame, records its position in angstrom and fits the line. A 40-frame trajectory runs in under three seconds, so adding a temperature or re-running a condition stopped being a planning decision.
+So I automated it. The tool reads the trajectory, finds the boundary in every Nth frame, records its position in angstrom, and fits the line. A 40-frame trajectory takes under three seconds. After that, adding another temperature or re-running a condition was no longer something I had to think about.
 
 ## How it works
 
-1. **Reads the LAMMPS dump that OVITO reads.** No export step and no screenshots. The LAMMPS run already writes a per-atom structure type from polyhedral template matching (`v_ptm_type`); atoms that are not FCC are, by definition, the grain boundary, which is exactly what OVITO renders white. If that column is missing the tracker falls back to centrosymmetry (`c_csym`), and if neither exists it says which column to add to the dump command.
-2. **Finds the boundaries.** Boundary atoms are binned along the migration axis. A grain boundary is a coherent plane, so it shows up as a sharp peak in that histogram, while thermal disorder at high temperature only raises the background. Two peaks are tracked: the boundary in the middle of the bicrystal and the one at the periodic edge of the box.
-3. **Tracks and fits.** Each boundary is followed frame to frame with periodic unwrapping, so crossing the box edge does not break the distance. Distance against time is fit by least squares for the velocity in angstrom/ps (1 angstrom/ps = 100 m/s). Across temperatures, `gbtrack arrhenius` fits ln(v) against 1/T for the activation energy.
+1. **It reads the LAMMPS dump directly.** No exporting, no screenshots. My LAMMPS runs already wrote a per-atom structure type from polyhedral template matching (`v_ptm_type`). Atoms that aren't FCC are the boundary, which is the same thing OVITO is showing you when it paints them white. If the dump has no structure column the tool falls back to centrosymmetry (`c_csym`), and if it has neither it tells you which column to add to your dump command.
+2. **It finds the boundaries.** The boundary atoms get binned along the migration axis. Since a grain boundary is a plane, its atoms pile into a few bins and make a sharp peak, while the thermal disorder you get at high temperature just raises the floor a bit. There are two peaks to track in a bicrystal: the boundary in the middle and the one at the periodic edge of the box.
+3. **It tracks and fits.** Each boundary is followed frame to frame, and the box is treated as periodic, so a boundary crossing the edge keeps a continuous distance. Distance versus time goes through a least-squares fit for the velocity in angstrom/ps (1 angstrom/ps is 100 m/s). `gbtrack arrhenius` then fits ln(v) against 1/T across temperatures to get the activation energy.
 
 ```
 gbtrack run mcmd.sro.dmp.gz --every 10 --dt-ps 0.002 --out results/1000K
 gbtrack arrhenius velocities.csv --out results
 ```
 
-## Results from the original study
+## Results from the study
 
-The data below are the spreadsheet numbers from the 2024-25 study, re-fit with this tool.
+These are the numbers from my spreadsheet at the time, re-fit with this tool.
 
 ![Nickel distance vs time](figures/nickel_distance_vs_time.png)
 
@@ -36,22 +36,22 @@ The data below are the spreadsheet numbers from the 2024-25 study, re-fit with t
 | Pure nickel | 0.029 m/s | 0.041 m/s | 0.055 m/s | 0.066 m/s |
 | NiCoCr, random solid solution | 0.137 m/s | 0.147 m/s | 0.169 m/s | 0.195 m/s |
 
-Alloying sped the boundary up by about 4.7x at 1000 K. The Arrhenius fit gives an activation energy of 0.31 eV for nickel and 0.13 eV for the random NiCoCr alloy; in the full study, chemically ordered NiCoCr raised that barrier roughly threefold over the random alloy.
+Alloying made the boundary about 4.7x faster at 1000 K. The Arrhenius fit gives an activation energy of 0.31 eV for nickel and 0.13 eV for the random NiCoCr alloy. In the full study, adding chemical order to the NiCoCr roughly tripled that barrier compared to the random alloy.
 
 ![Arrhenius fit](figures/arrhenius_nickel_vs_nicocr.png)
 
-## It also works on the pictures
+## It works on the pictures too
 
-When only OVITO renders are available, `gbtrack images` runs the same peak-finding on the image: whitish pixels are the boundary, a column profile replaces the atom histogram, and a scale in angstrom per pixel converts the displacement. The frames below are the real 1000 K nickel run at step 0 and step 199 with the detected boundaries marked. Even at 1400 K, where thermal disorder covers the sample in white specks, the boundary's columns sit around 0.75 white against a background of about 0.2.
+If all you have are OVITO renders, `gbtrack images` does the same peak-finding on the image: whitish pixels count as boundary, a column profile stands in for the atom histogram, and you give it a scale in angstrom per pixel. Below are the real 1000 K nickel frames at step 0 and step 199 with the boundaries it found. Even at 1400 K, where thermal noise covers the sample in white specks, the boundary's columns come out around 0.75 white against a background near 0.2, so it still stands out.
 
 ![Real OVITO frames with detected boundaries](figures/real_profile_1000K.png)
 
-## Validation
+## Checking that it's right
 
-Synthetic trajectories with a known boundary velocity and a controllable amount of thermal noise are generated by `gbtrack demo`. The tracker recovers the velocity within 1% on the dump path (0.0347 vs 0.0350 angstrom/ps with 10% noise atoms, including a boundary that crosses the periodic edge) and within 0.1% on the image path. The test suite (61 tests, pytest) covers the dump parser, boundary selection, peak finding including a boundary straddling the periodic edge, tracking with unwrapping, the velocity and Arrhenius fits against the study's recorded numbers, and the real OVITO frames.
+`gbtrack demo` builds a synthetic trajectory with a known boundary velocity and an adjustable amount of thermal noise, then runs the tracker on it. It recovers the velocity to within 1% on the dump path (0.0347 vs 0.0350 angstrom/ps with 10% noise atoms, including a boundary that crosses the periodic edge) and within 0.1% on the image path. There are 61 pytest tests covering the dump parser, how boundary atoms are chosen, peak finding (including a peak sitting right on the periodic edge), tracking with unwrapping, the velocity and Arrhenius fits against the study's recorded numbers, and the real OVITO frames.
 
-The lab's trajectory files are not included, so the dump path is validated on synthetic trajectories and the study's recorded distances; the image path is validated on the study's real renders.
+The lab's trajectory files aren't included here, so the dump path is checked against synthetic trajectories and the recorded distances from the study, and the image path against the real renders.
 
 ## Stack
 
-Python, NumPy, Pillow, matplotlib, pytest. Input: LAMMPS dump trajectories (plain or gzip), the format OVITO loads for these runs.
+Python, NumPy, Pillow, matplotlib, pytest. Input is a LAMMPS dump trajectory, plain or gzipped, which is what OVITO loads for these runs.
